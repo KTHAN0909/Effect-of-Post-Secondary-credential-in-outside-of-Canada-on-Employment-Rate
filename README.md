@@ -1,1 +1,4 @@
-[A1_draft.pdf](https://github.com/user-attachments/files/33526469/A1_draft.pdf)
+<img width="3360" height="1920" alt="image" src="https://github.com/user-attachments/assets/a70124c1-ce84-4e50-bf33-2cedb4cc8340" />
+
+
+After analyzing Census Metro dataset provided by Statistics Canada, we can observe in the visualization above that the employment rate is mostly higher within young immigrants who have Canadian post-secondary credentials. However, another interesting observation is that legal professions, science and tech, and engineering fields had extremely similar employment rate with an exception of science and tech having more employment rate with non-Canadian post-secondary credentials. This goes to show that the for young immigrants who studied STEM and worked at STEM fields outside of Canada have a more fair chance of getting employed as the Canadians with the similar education and career background. 

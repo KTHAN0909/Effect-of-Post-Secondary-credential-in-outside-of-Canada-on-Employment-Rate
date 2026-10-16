@@ -1,0 +1,225 @@
+---
+title: "Assignment 1"
+output:
+  pdf_document: default
+  html_document: default
+date: "2025-10-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r install, include=FALSE, eval=FALSE}
+install.packages("tidyverse")
+install.packages("dplyr")
+install.packages("ggplot2")
+install.packages("stringr")
+install.packages("scales") 
+```
+```{r libraries, include=FALSE}
+library(tidyverse) 
+library(scales)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+```
+
+
+
+```{r, include=FALSE}
+
+df <- read_csv("census_21_metro.csv")
+
+cip_lookup <- tibble::tribble(
+  ~cip2021, ~cip_label,
+   1L, "Education",
+   2L, "Visual & performing arts, and communications technologies",
+   3L, "Humanities",
+   4L, "Social & behavioural sciences and law",
+   5L, "Business, management & public administration",
+   6L, "Physical & life sciences and technologies",
+   7L, "Mathematics, computer & information sciences",
+   8L, "Architecture, engineering & related trades",
+   9L, "Agriculture, natural resources & conservation",
+  10L, "Health & related fields",
+  11L, "Personal, protective & transportation services",
+  12L, "Other",
+  13L, "No postsecondary certificate, diploma or degree",
+  88L, "Not available",
+  99L, "Not applicable"
+)
+
+
+
+cip_stem_sum_lookup <- tibble::tribble(
+  ~cip2021_stem_sum, ~cip_stem_sum_label,
+  
+  1L, "Science and science technology",
+  2L, "Engineering and engineering technology",
+  3L, "Mathematics and computer and information sciences",
+  4L, "Business and administration",
+  5L, "Arts and humanities",
+  6L, "Social and behavioural sciences",
+  7L, "Legal professions and studies", 
+  8L, "Health care",
+  9L, "Education and teaching",
+  10L, "Trades, services, natural resources and conservation",
+  11L, "No postsecondary certificate, diploma or degree",
+
+  88L, "Not available",
+  99L, "Not applicable" 
+  
+)
+
+
+noc21_lookup <- tibble::tribble(
+  ~noc21_code, ~noc21_label,
+   1L,  "Legislative and senior managers",
+   2L,  "Middle management occupations",
+   3L,  "Professional occupations in business and finance",
+   4L,  "Administrative & financial supervisors and specialized admin occs",
+   5L,  "Administrative occupations & transportation logistics occs",
+   6L,  "Admin & financial support and supply chain logistics occs",
+   7L,  "Professional occupations in natural & applied sciences",
+   8L,  "Technical occupations related to natural & applied sciences",
+   9L,  "Professional occupations in health",
+  10L,  "Technical occupations in health",
+  11L,  "Assisting occupations in support of health services",
+  12L,  "Professional occupations in law, education, social, community & gov’t",
+  13L,  "Front-line public protection & paraprofessional legal/social/edu occs",
+  14L,  "Assisting/care providers/student monitors/crossing guards etc.",
+  15L,  "Professional & technical occupations in art, culture & sport",
+  16L,  "Other occupations in art, culture & sport",
+  17L,  "Retail sales & service supervisors and specialized sales/service occs",
+  18L,  "Occupations in sales & services",
+  19L,  "Sales/service reps & other customer/personal services occs",
+  20L,  "Sales & service support occupations",
+  21L,  "Technical trades & transportation officers and controllers",
+  22L,  "General trades",
+  23L,  "Mail/message distribution & other transport equipment operators etc.",
+  24L,  "Helpers & labourers and other transport drivers/operators/labourers",
+  25L,  "Natural resources, agriculture & related production occs",
+  26L,  "Processing, manufacturing & utilities occs",
+  88L,  "Not available"
+)
+
+naics_lookup <- tribble(
+  ~naics2, ~naics_label,
+  11L, "Agriculture, forestry, fishing and hunting",
+  21L, "Mining, quarrying, and oil and gas extraction",
+  22L, "Utilities",
+  23L, "Construction",
+  31L, "Manufacturing (31–33)",
+  32L, "Manufacturing (31–33)",
+  33L, "Manufacturing (31–33)",
+  41L, "Wholesale trade",
+  44L, "Retail trade (44–45)",
+  45L, "Retail trade (44–45)",
+  48L, "Transportation and warehousing (48–49)",
+  49L, "Transportation and warehousing (48–49)",
+  51L, "Information and cultural industries",
+  52L, "Finance and insurance",
+  53L, "Real estate and rental and leasing",
+  54L, "Professional, scientific and technical services",
+  55L, "Management of companies and enterprises",
+  56L, "Admin/support, waste mgmt and remediation",
+  61L, "Educational services",
+  62L, "Health care and social assistance",
+  71L, "Arts, entertainment and recreation",
+  72L, "Accommodation and food services",
+  81L, "Other services (except public administration)",
+  91L, "Public administration"
+)
+
+
+df_g6 <- df %>%
+  mutate(
+    group = case_when(
+      Citizen == 2 & LOC_ST_RES == 3 ~ "Immigrant — studied outside Canada",
+      (Citizen == 2 & LOC_ST_RES == 1) | (Citizen == 2 & LOC_ST_RES == 2) ~ "Immigrant — studied in Canada",
+      TRUE ~ NA_character_
+      )
+  ) %>%
+  filter(
+    !is.na(group),
+    between(AGEGRP, 9, 10),        # 25–64
+    between(HDGREE, 5, 13),        # postsecondary
+    CIP2021_STEM_SUM < 88
+    )
+
+
+
+# Ensure the field code is integer and bring labels
+df1 <- df_g6 %>%
+  left_join(cip_stem_sum_lookup, by = c("CIP2021_STEM_SUM" = "cip2021_stem_sum"))
+
+# Count immigrants by field (all study locations pooled) to pick the top 5 fields of study in immigrants
+top5_fields <- df1 %>%
+  group_by(CIP2021_STEM_SUM, cip_stem_sum_label) %>%
+  summarise(total = n(), .groups = "drop") %>%
+  slice_max(total, n = 10, with_ties = FALSE)
+
+
+
+rates <- df1 %>%
+  filter(CIP2021_STEM_SUM %in% top5_fields$CIP2021_STEM_SUM) %>%
+  group_by(group, cip_stem_sum_label) %>%
+  summarise(
+    denom = n(),
+    num   = sum(LFACT <= 2 | between(LFACT, 6, 8), na.rm = TRUE),
+    emp_rate = num / pmax(denom, 1e-9),
+    .groups = "drop"
+  )
+
+cip_union <- rates %>%
+  group_by(cip_stem_sum_label) %>%
+  summarise(max_share = max(emp_rate), .groups = "drop") %>%
+  arrange(max_share) %>%
+  pull(cip_stem_sum_label)
+
+imm_rates <- rates |>
+  mutate(
+    cip_show   = str_wrap(cip_stem_sum_label, 36),
+    cip_show   = factor(cip_show, levels = str_wrap(cip_union, 36))
+  )
+```
+
+```{r, fig.width=38, fig.height=20, echo = FALSE}
+ggplot(imm_rates, aes(x = cip_show, y = emp_rate, fill = group)) +
+  scale_fill_brewer(palette = "Set2") +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_text(aes(label = percent(emp_rate, accuracy = 0.1)),
+            position = position_dodge(width = 0.8), vjust = -0.25, size = 10) +
+  scale_y_continuous(labels = percent_format(), limits = c(0, 1)) +
+  labs(
+    x = NULL, y = "Employment rate (25–34, postsecondary immigrants)",
+    title = "Does holding postsecondary credential earned outside Canada affect the employment rate of young adult immigrants (age 25–34)?",
+    subtitle = "Fields of study among young adult immigrants (CIP2021 STEM/BHASE summary)",
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "top",
+    legend.text = element_text(size = 30), 
+    axis.text.x = element_text(size = 25),  # bigger x tick labels (your categories)
+    axis.text.y = element_text(size = 30),  # bigger y tick labels
+    axis.title.y = element_text(size = 30),  # bigger y-axis title (optional)
+    plot.title    = element_text(size = 40, face = "bold", lineheight = 1.1,
+                                 margin = margin(b = 6)),
+    plot.subtitle = element_text(size = 40, lineheight = 1.1,
+                                 margin = margin(b = 10)),
+    plot.caption  = element_text(size = 40)
+  )+ 
+  
+  scale_x_discrete(labels = \(x) stringr::str_wrap(x, width = 20))
+
+```
+
+
+
+
+
+\newpage
+
+
